@@ -1,0 +1,33 @@
+{
+  "name": "@microws/streams",
+  "version": "1.0.0",
+  "description": "Helpers around Streams",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "dependencies": {
+    "backoff": "^2.5.0",
+    "fast-csv": "^2.5.0",
+    "moment": "^2.24.0",
+    "lodash.merge": "^4.6.1",
+    "pump": "^3.0.0",
+    "pumpify": "^1.5.1",
+    "split2": "^3.1.1",
+    "through2": "^3.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/microws/streams.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/microws/streams/issues"
+  },
+  "homepage": "https://github.com/microws/streams#readme"
+}
