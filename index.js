@@ -90,6 +90,12 @@ let ls = module.exports = {
             }
         );
     },
+    logField: function (field, prefix = 'field') {
+        return ls.through((obj, done) => {
+            console.log(prefix, obj[field]);
+            done(null, obj);
+        })
+    },
     devnull: function (shouldLog = false) {
         if (shouldLog) {
             return ls.pipeline(
@@ -121,18 +127,68 @@ let ls = module.exports = {
     }),
     stringify: () => ls.through((obj, done) => {
         done(null, JSON.stringify(obj) + "\n");
+    }, (done) => {
+        console.log("FLUSH stringify");
+        done();
     }),
+    limit: ({ size }) => {
+        let s;
+        if (size) {
+            let currentSize = 0;
+            let byteSizeLimit = 0;
+            if (typeof size == "number") {
+                byteSizeLimit = size;
+            } else {
+                let multiplication = {
+                    bytes: 1,
+                    kb: 1024,
+                    mb: 1024 * 1024,
+                    gb: 1024 * 1024 * 1024 * 1024,
+                    tb: 1024 * 1024 * 1024 * 1024
+                };
+                Object.keys(size).forEach(n => {
+                    byteSizeLimit += Math.floor(multiplication[n.toLowerCase()] * size[n]);
+                })
+            }
+            s = ls.through((obj, done) => {
+                currentSize += obj.length;
+                if (currentSize > byteSizeLimit) {
+                    s.stop();
+                    done(null);
+                } else {
+                    done(null, obj);
+                }
+            });
+        }
+        return s;
+    },
+    count: (label = "count") => {
+        let count = 0;
+        return ls.through((obj, done) => {
+            count++;
+            done(null, obj);
+        }, {
+                flush: done => {
+                    console.log(label, count);
+                    done();
+                }
+            }
+        );
+    },
     parse: () => {
         return ls.pipeline(ls.split(), ls.fromJson());
     },
     gunzipParse: () => {
-        return ls.pipeline(ls.log("before gzip"), ls.gunzip(), ls.split(), ls.fromJson());
+        return ls.pipeline(ls.gunzip(), ls.split(), ls.fromJson());
     },
     fromString: (string) => {
         let pass = stream.PassThrough();
         pass.end(string);
         return pass;
     },
+    batch: ({ }) => {
+
+    }
 };
 
 
