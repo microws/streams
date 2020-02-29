@@ -82,12 +82,12 @@ let ls = module.exports = {
             }
             done(null, obj);
         }, {
-                cmdWrap: false,
-                flush: (done) => {
-                    console.log(prefix, `flush called`);
-                    done();
-                }
+            cmdWrap: false,
+            flush: (done) => {
+                console.log(prefix, `flush called`);
+                done();
             }
+        }
         );
     },
     logField: function (field, prefix = 'field') {
@@ -143,7 +143,7 @@ let ls = module.exports = {
                     bytes: 1,
                     kb: 1024,
                     mb: 1024 * 1024,
-                    gb: 1024 * 1024 * 1024 * 1024,
+                    gb: 1024 * 1024 * 1024,
                     tb: 1024 * 1024 * 1024 * 1024
                 };
                 Object.keys(size).forEach(n => {
@@ -168,11 +168,11 @@ let ls = module.exports = {
             count++;
             done(null, obj);
         }, {
-                flush: done => {
-                    console.log(label, count);
-                    done();
-                }
+            flush: done => {
+                console.log(label, count);
+                done();
             }
+        }
         );
     },
     parse: () => {
