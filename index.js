@@ -186,8 +186,62 @@ let ls = module.exports = {
         pass.end(string);
         return pass;
     },
-    batch: ({ }) => {
-
+    batch: ({ records, sizeBytes, func, write = false }) => {
+        let buffer = {
+            cmds: [],
+            records: [],
+            size: 0
+        };
+        let algorithm;
+        if (sizeBytes) {
+            algorithm = async (obj, { push }) => {
+                let size = 0;
+                if (typeof obj == "string") {
+                    size = obj.length;
+                } else {
+                    size = JSON.stringify(obj).length;
+                }
+                if ((size + buffer.size) > sizeBytes && buffer.records.length) {
+                    let r = await func(buffer.records);
+                    if (!write) push(r);
+                    buffer.cmds.forEach(cmd => {
+                        push(cmd);
+                    });
+                    buffer.cmds = [];
+                    buffer.records = [];
+                    buffer.size = 0;
+                }
+                buffer.records.push(obj);
+                buffer.size += size;
+            };
+        } else {
+            algorithm = async (obj, { push }) => {
+                buffer.records.push(obj);
+                if (buffer.records.length >= records) {
+                    let r = await func(buffer.records);
+                    if (!write) push(r);
+                    buffer.cmds.forEach(cmd => {
+                        push(cmd);
+                    });
+                    buffer.cmds = [];
+                    buffer.records = [];
+                }
+            }
+        }
+        return ls[write ? 'write' : 'through'](algorithm, {
+            commands: async obj => {
+                buffer.cmds.push(obj)
+            },
+            flush: async (push) => {
+                if (buffer.records.length > 0) {
+                    let r = await func(buffer.records);
+                    if (!write) push(r);
+                }
+                buffer.cmds.forEach(cmd => {
+                    push(cmd);
+                });
+            }
+        })
     }
 };
 
@@ -206,11 +260,25 @@ function wrapThroughTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else if (obj._cmd) {
-                if (obj._cmd in commands) {
+                if (typeof commands == 'function') {
+                    commands(obj, {
+                        push: this.push.bind(this),
+                    }).then(result => {
+                        if (result !== undefined) {
+                            done(null, result)
+                        } else {
+                            done();
+                        }
+                    });
+                } else if (obj._cmd in commands) {
                     commands[obj._cmd](obj, {
                         push: this.push.bind(this),
                     }).then(result => {
-                        done(null, result)
+                        if (result !== undefined) {
+                            done(null, result)
+                        } else {
+                            done();
+                        }
                     });
                 } else {
                     done(null, obj);
@@ -219,7 +287,11 @@ function wrapThroughTransform(func, forcePromise, cmdWrap, commands) {
                 func(obj, {
                     push: this.push.bind(this),
                 }).then(result => {
-                    done(null, result)
+                    if (result !== undefined) {
+                        done(null, result)
+                    } else {
+                        done();
+                    }
                 });
             }
         };
@@ -228,7 +300,11 @@ function wrapThroughTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else if (obj._cmd) {
-                if (obj._cmd in commands) {
+                if (typeof commands == 'function') {
+                    commands(obj, {
+                        push: this.push.bind(this),
+                    });
+                } else if (obj._cmd in commands) {
                     commands[obj._cmd](obj, done, {
                         push: this.push.bind(this),
                     });
@@ -249,7 +325,13 @@ function wrapThroughTransform(func, forcePromise, cmdWrap, commands) {
             } else {
                 func(obj, done, {
                     push: this.push.bind(this),
-                }).then(result => done(null, result));
+                }).then(result => {
+                    if (result !== undefined) {
+                        done(null, result)
+                    } else {
+                        done();
+                    }
+                });
             }
         }
     } else {
@@ -288,9 +370,10 @@ function wrapWriteTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else if (obj._cmd) {
-                if (obj._cmd in commands) {
-                    commands[obj._cmd](obj, {
-                    }).then(result => done());
+                if (typeof commands == 'function') {
+                    commands(obj, {}).then(result => done());
+                } else if (obj._cmd in commands) {
+                    commands[obj._cmd](obj, {}).then(result => done());
                 } else {
                     done();
                 }
@@ -306,15 +389,15 @@ function wrapWriteTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else if (obj._cmd) {
-                if (obj._cmd in commands) {
-                    commands[obj._cmd](obj, done, {
-                    });
+                if (typeof commands == 'function') {
+                    commands(obj, done, {});
+                } else if (obj._cmd in commands) {
+                    commands[obj._cmd](obj, done, {});
                 } else {
                     done();
                 }
             } else {
-                func(obj, done, {
-                });
+                func(obj, done, {});
             }
         }
     } else if (usesPromises) {
@@ -322,8 +405,7 @@ function wrapWriteTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else {
-                func(obj, done, {
-                }).then(result => done());
+                func(obj, done, {}).then(result => done());
             }
         }
     } else {
@@ -331,8 +413,7 @@ function wrapWriteTransform(func, forcePromise, cmdWrap, commands) {
             if (stopped) {
                 done();
             } else {
-                func(obj, done, {
-                });
+                func(obj, done, {});
             }
         }
     }
@@ -353,7 +434,11 @@ function wrapThroughFlush(flush, forcePromise, isWrite = false) {
         if (usesPromises) {
             return function (done) {
                 return flush(this.push && this.push.bind(this)).then(result => {
-                    done(null, result);
+                    if (result !== undefined) {
+                        done(null, result)
+                    } else {
+                        done();
+                    }
                 });
             }
         } else {
